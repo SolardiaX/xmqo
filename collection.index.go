@@ -17,12 +17,14 @@ import (
 )
 
 // DropIndex 使用默认上下文删除索引
+//
 //	@param indexes 待删除索引名
 func (c *Collection) DropIndex(indexes []string) error {
 	return c.DropIndexWithCtx(context.TODO(), indexes)
 }
 
 // DropIndexWithCtx 删除索引
+//
 //	@param indexes 待删除索引名
 func (c *Collection) DropIndexWithCtx(ctx context.Context, indexes []string) (err error) {
 	var res string
@@ -57,12 +59,14 @@ func (c *Collection) CreateIndexes(indexes []opts.IndexOptions) error {
 }
 
 // CreateIndexesWithCtx 创建索引
+//
 //	注意：不支持在 `local` 模式读策略下的操作
 func (c *Collection) CreateIndexesWithCtx(ctx context.Context, indexes []opts.IndexOptions) error {
 	return c.ensureIndex(ctx, indexes)
 }
 
 // EnsureIndexes 使用默认上下文确保使用索引
+//
 //	@param uniques 唯一索引
 //	@param indexes 普通索引
 func (c *Collection) EnsureIndexes(uniques []string, indexes []string) error {
@@ -70,6 +74,7 @@ func (c *Collection) EnsureIndexes(uniques []string, indexes []string) error {
 }
 
 // EnsureIndexesWithCtx 确保使用索引
+//
 //	注意：不支持在 `local` 模式读策略下的操作
 //	@param ctx 上下文
 //	@param uniques 唯一索引
@@ -79,7 +84,9 @@ func (c *Collection) EnsureIndexesWithCtx(ctx context.Context, uniques []string,
 
 	for _, v := range uniques {
 		vv := strings.Split(v, ",")
-		model := opts.IndexOptions{Key: vv, Unique: true}
+		indexOpts := options.Index()
+		indexOpts.SetUnique(true)
+		model := opts.IndexOptions{Key: vv, IndexOptions: indexOpts}
 		uniqueModel = append(uniqueModel, model)
 	}
 
@@ -110,13 +117,10 @@ func (c *Collection) ensureIndex(ctx context.Context, indexes []opts.IndexOption
 
 			keysDoc = keysDoc.Append(key, bsonx.Int32(n))
 		}
-		iOptions := options.Index().SetUnique(idx.Unique).SetBackground(idx.Background).SetSparse(idx.Sparse)
-		if idx.ExpireAfterSeconds != nil {
-			iOptions.SetExpireAfterSeconds(*idx.ExpireAfterSeconds)
-		}
+
 		model = mongo.IndexModel{
 			Keys:    keysDoc,
-			Options: iOptions,
+			Options: idx.IndexOptions,
 		}
 
 		indexModels = append(indexModels, model)

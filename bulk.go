@@ -70,6 +70,12 @@ func (b *Bulk) Upsert(filter interface{}, replacement interface{}) *Bulk {
 	return b
 }
 
+func (b *Bulk) UpsertOne(filter interface{}, update interface{}) *Bulk {
+	wm := mongo.NewUpdateOneModel().SetFilter(filter).SetUpdate(update).SetUpsert(true)
+	b.queue = append(b.queue, wm)
+	return b
+}
+
 func (b *Bulk) UpsertId(id interface{}, replacement interface{}) *Bulk {
 	b.Upsert(bson.M{"_id": id}, replacement)
 	return b

@@ -22,10 +22,14 @@ type IQuery interface {
 	Sort(fields ...string) IQuery
 	Select(selector interface{}) IQuery
 	Skip(n int64) IQuery
+	BatchSize(n int64) IQuery
+	SetArrayFilters(*options.ArrayFilters) IQuery
+	NoCursorTimeout(n bool) IQuery
 	Limit(n int64) IQuery
 	One(result interface{}) error
 	All(result interface{}) error
 	Count() (n int64, err error)
+	EstimatedCount() (n int64, err error)
 	Exists() (b bool, err error)
 	Distinct(key string, result interface{}) error
 	Cursor() ICursor
@@ -42,12 +46,15 @@ type Change struct {
 }
 
 type Query struct {
-	filter  interface{}
-	sort    interface{}
-	project interface{}
-	hint    interface{}
-	limit   *int64
-	skip    *int64
+	filter          interface{}
+	sort            interface{}
+	project         interface{}
+	hint            interface{}
+	limit           *int64
+	skip            *int64
+	batchSize       *int64
+	arrayFilters    *options.ArrayFilters
+	noCursorTimeout *bool
 
 	ctx        context.Context
 	collection *mongo.Collection
@@ -87,6 +94,24 @@ func (q *Query) Skip(n int64) IQuery {
 	newQ := q
 	newQ.skip = &n
 
+	return newQ
+}
+
+func (q *Query) BatchSize(n int64) IQuery {
+	newQ := q
+	newQ.batchSize = &n
+	return newQ
+}
+
+func (q *Query) SetArrayFilters(filter *options.ArrayFilters) IQuery {
+	newQ := q
+	newQ.arrayFilters = filter
+	return newQ
+}
+
+func (q *Query) NoCursorTimeout(n bool) IQuery {
+	newQ := q
+	newQ.noCursorTimeout = &n
 	return newQ
 }
 
@@ -163,6 +188,12 @@ func (q *Query) All(result interface{}) error {
 	if q.hint != nil {
 		opt.SetHint(q.hint)
 	}
+	if q.batchSize != nil {
+		opt.SetBatchSize(int32(*q.batchSize))
+	}
+	if q.noCursorTimeout != nil {
+		opt.SetNoCursorTimeout(*q.noCursorTimeout)
+	}
 
 	var err error
 	var cursor *mongo.Cursor
@@ -197,6 +228,10 @@ func (q *Query) Count() (n int64, err error) {
 	}
 
 	return q.collection.CountDocuments(q.ctx, q.filter, opt)
+}
+
+func (q *Query) EstimatedCount() (n int64, err error) {
+	return q.collection.EstimatedDocumentCount(q.ctx)
 }
 
 func (q *Query) Exists() (b bool, err error) {
@@ -261,6 +296,12 @@ func (q *Query) Cursor() ICursor {
 	}
 	if q.skip != nil {
 		opt.SetSkip(*q.skip)
+	}
+	if q.batchSize != nil {
+		opt.SetBatchSize(int32(*q.batchSize))
+	}
+	if q.noCursorTimeout != nil {
+		opt.SetNoCursorTimeout(*q.noCursorTimeout)
 	}
 
 	var err error
@@ -336,6 +377,9 @@ func (q *Query) findOneAndUpdate(change Change, result interface{}) error {
 	}
 	if change.ReturnNew {
 		opt.SetReturnDocument(options.After)
+	}
+	if q.arrayFilters != nil {
+		opt.SetArrayFilters(*q.arrayFilters)
 	}
 
 	err := q.collection.FindOneAndUpdate(q.ctx, q.filter, change.Update, opt).Decode(result)

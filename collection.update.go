@@ -6,6 +6,7 @@ package xmgo
 
 import (
 	"context"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -74,7 +75,9 @@ func (c *Collection) UpdateOneWithCtx(ctx context.Context, filter interface{}, u
 
 	res, err = c.collection.UpdateOne(ctx, filter, update, updateOpts)
 	if res != nil && res.MatchedCount == 0 {
-		err = ErrNoSuchDocuments
+		if updateOpts.Upsert == nil || !*updateOpts.Upsert {
+			err = ErrNoSuchDocuments
+		}
 	}
 
 	if err != nil {

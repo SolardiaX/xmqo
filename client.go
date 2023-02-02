@@ -21,7 +21,8 @@ import (
 )
 
 // Credential mongodb 鉴权
-// 	参见 https://docs.mongodb.com/drivers/go/current/fundamentals/auth/
+//
+//	参见 https://docs.mongodb.com/drivers/go/current/fundamentals/auth/
 type Credential struct {
 	AuthMechanism string `json:"authMechanism"` // 鉴权加密机制
 	AuthSource    string `json:"authSource"`    // 鉴权数据库
@@ -72,6 +73,7 @@ type Client struct {
 }
 
 // NewClient 创建 mongodb 连接
+//
 //	@param conf 连接配置
 //	@param opts 源生连接参数
 func NewClient(conf *Config, o ...opts.ClientOptions) (cli *Client) {
@@ -111,9 +113,18 @@ func (c *Client) Close() error {
 }
 
 // Database 连接到指定名称的数据库
+//
 //	@param name 数据库名称
-func (c *Client) Database(name string) *Database {
-	database := &Database{database: c.client.Database(name), registry: c.registry}
+//	@param options 数据库连接参数
+func (c *Client) Database(name string, o ...*opts.DatabaseOptions) *Database {
+	opt := options.Database()
+	if len(o) > 0 {
+		if o[0].DatabaseOptions != nil {
+			opt = o[0].DatabaseOptions
+		}
+	}
+
+	database := &Database{database: c.client.Database(name, opt), registry: c.registry}
 
 	if cli, ok := onOpened[c.conf.Uri]; ok {
 		if actions, ok := cli[name]; ok {
@@ -129,6 +140,7 @@ func (c *Client) Database(name string) *Database {
 }
 
 // Ping 确认连接是否可用
+//
 //	@param timeout 超时时间
 func (c *Client) Ping(timeout int64) (err error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(timeout)*time.Second)
